@@ -59,32 +59,39 @@ def get_driver():
 def get_price_from_detail(driver, url):
     try:
         driver.get(url)
-
-        WebDriverWait(driver, 15).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, "body"))
-        )
+        WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, "body")))
         time.sleep(2)
 
-        try:
-            variant_input = driver.find_element(By.CSS_SELECTOR, "input.a-button-input[aria-checked='true']")
-            driver.execute_script("arguments[0].click();", variant_input)
-            WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, ".aok-offscreen"))
-            )
-            time.sleep(1)
-        except:
-            pass
-
+        # Normal ürün sayfasında fiyat araması
         price_elements = driver.find_elements(By.CSS_SELECTOR, ".aok-offscreen")
         for el in price_elements:
             text = el.get_attribute("innerText").strip()
             if "TL" in text and any(char.isdigit() for char in text):
                 return text
 
+        # Eğer fiyat bulunamadıysa → satın alma seçenekleri sayfasına git
+        try:
+            offer_link = driver.find_element(By.CSS_SELECTOR, "a.a-button-text[title*='Satın Alma Seçeneklerini Gör']")
+            offer_url = offer_link.get_attribute("href")
+            if offer_url:
+                if offer_url.startswith("/"):
+                    offer_url = "https://www.amazon.com.tr" + offer_url
+                driver.get(offer_url)
+                WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".aok-offscreen")))
+                time.sleep(1)
+                offer_prices = driver.find_elements(By.CSS_SELECTOR, ".aok-offscreen")
+                for el in offer_prices:
+                    text = el.get_attribute("innerText").strip()
+                    if "TL" in text and any(char.isdigit() for char in text):
+                        return text
+        except Exception as e:
+            print(f"⚠️ Satın alma seçenekleri sayfası hatası: {e}")
+
         return "Fiyat alınamadı"
     except Exception as e:
         print(f"⚠️ Detay sayfasından fiyat alınamadı: {e}")
         return "Fiyat alınamadı"
+
 
 def load_sent_data():
     data = {}
@@ -112,7 +119,7 @@ def run():
         return
 
     driver = get_driver()
-    driver.get("https://www.amazon.com.tr")
+    driver.get(URL)
     time.sleep(2)
     load_cookies(driver)
     driver.get(URL)
@@ -132,6 +139,10 @@ def run():
     product_links = []
     for item in items:
         try:
+            # Sponsorlu ürün kontrolü
+            if item.find_elements(By.XPATH, ".//span[contains(text(), 'Sponsorlu')]"):
+                continue  # sponsorluysa atla
+
             asin = item.get_attribute("data-asin")
             title = item.find_element(By.CSS_SELECTOR, "img.s-image").get_attribute("alt").strip()
             link = item.find_element(By.CSS_SELECTOR, "a.a-link-normal").get_attribute("href")
@@ -167,9 +178,16 @@ def run():
 
         if asin in sent_data:
             old_price = sent_data[asin]
-            if price != old_price:
-                print(f"📉 Fiyat düştü: {product['title']} → {old_price} → {price}")
-                products_to_send.append(product)
+            try:
+               old_val = float(old_price.replace("TL", "").replace(".", "").replace(",", ".").strip())
+               new_val = float(price.replace("TL", "").replace(".", "").replace(",", ".").strip())    
+               if new_val < old_val:
+                   print(f"📉 Fiyat düştü: {product['title']} → {old_price} → {price}")
+                   products_to_send.append(product)
+               else:
+                   print(f"⏩ Fiyat yükseldi veya aynı: {product['title']} → {old_price} → {price}")
+            except:
+                print(f"⚠️ Fiyat karşılaştırılamadı: {product['title']} → {old_price} → {price}")
         else:
             print(f"🆕 Yeni ürün: {product['title']}")
             products_to_send.append(product)
