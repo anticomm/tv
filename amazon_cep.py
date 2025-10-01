@@ -12,7 +12,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 from telegram_cep import send_message
 
-URL = "https://www.amazon.com.tr/s?k=televizyon&i=electronics&bbn=44219324031&rh=n%3A12466496031%2Cn%3A44219324031%2Cn%3A13709882031%2Cn%3A13709927031&s=price-asc-rank&dc&__mk_tr_TR=%C3%85M%C3%85%C5%BD%C3%95%C3%91&ds=v1%3AvQqQdBl0N6dj7Y8zNt7iQ4q1Zoj7%2FiZdfe96iUcr7oU"
+URL = "https://www.amazon.com.tr/s?k=televizyon&i=electronics&bbn=44219324031&rh=n%3A12466496031%2Cn%3A44219324031%2Cn%3A13709882031%2Cn%3A137099"
 COOKIE_FILE = "cookie_cep.json"
 SENT_FILE = "send_products.txt"
 
@@ -57,74 +57,41 @@ def get_driver():
     options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/115 Safari/537.36")
     return webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
-def extract_price_from_selectors(driver_or_item, selectors):
-    for selector in selectors:
-        try:
-            elements = driver_or_item.find_elements(By.CSS_SELECTOR, selector)
-            for el in elements:
-                text = el.get_attribute("innerText") or el.text
-                if not text:
-                    continue
-                text = text.replace("\xa0", " ").replace("TL", " TL").strip()
-                text = re.sub(r"\s+", " ", text)
-
-                if any(x in text.lower() for x in ["puan", "teslimat", "sipariş", "beğenilen", "kargo", "teklif"]):
-                    continue
-
-                if re.search(r"\d{1,3}(\.\d{3})*,\d{2} TL", text):
-                    return text
-        except:
-            continue
-    return None
-
-def get_offer_listing_link(driver):
+def get_used_price_from_item(item):
     try:
-        el = driver.find_element(By.XPATH, "//a[contains(@href, '/gp/offer-listing/')]")
-        href = el.get_attribute("href")
-        if href.startswith("/"):
-            return "https://www.amazon.com.tr" + href
-        return href
+        container = item.find_element(
+            By.XPATH,
+            ".//span[contains(text(), 'Diğer satın alma seçenekleri')]/following::span[contains(text(), 'TL')][1]"
+        )
+        price = container.text.strip()
+        return price
+    except:
+        return None
+
+def get_used_price_from_detail(driver):
+    try:
+        container = driver.find_element(
+            By.XPATH,
+            "//div[contains(@class, 'a-column') and .//span[contains(text(), 'İkinci El Ürün Satın Al:')]]"
+        )
+        price_element = container.find_element(By.CLASS_NAME, "offer-price")
+        price = price_element.text.strip()
+        return price
     except:
         return None
 
 def get_final_price(driver, link):
-    price_selectors_detail = [
-        ".aok-offscreen",
-        "span.a-size-base.a-color-price.offer-price.a-text-normal",
-        "span.a-color-base",
-        "span.a-price-whole"
-    ]
-    price_selectors_offer = [
-        ".a-price .a-offscreen",
-        "span.a-color-price",
-        "span.a-price-whole"
-    ]
-
     try:
         driver.execute_script("window.open('');")
         driver.switch_to.window(driver.window_handles[1])
         driver.get(link)
-        WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, "body")))
-        time.sleep(2)
-
-        price = extract_price_from_selectors(driver, price_selectors_detail)
-        if price:
-            driver.close()
-            driver.switch_to.window(driver.window_handles[0])
-            return price
-
-        offer_link = get_offer_listing_link(driver)
-        if offer_link:
-            driver.get(offer_link)
-            WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, "body")))
-            time.sleep(2)
-            price = extract_price_from_selectors(driver, price_selectors_offer)
-
+        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, "body")))
+        price = get_used_price_from_detail(driver)
         driver.close()
         driver.switch_to.window(driver.window_handles[0])
         return price
     except Exception as e:
-        print(f"⚠️ Sekme fallback hatası: {e}")
+        print(f"⚠️ Detay sayfa hatası: {e}")
         try:
             driver.close()
             driver.switch_to.window(driver.window_handles[0])
@@ -179,10 +146,6 @@ def run():
     products = []
     for item in items:
         try:
-            heading_check = item.find_elements(By.XPATH, ".//preceding::h5[contains(text(), 'Aradığınızı bulamadınız mı?')]")
-            if heading_check:
-                continue  # öneri kutusu → dışla
-
             if item.find_elements(By.XPATH, ".//span[contains(text(), 'Sponsorlu')]"):
                 continue
 
@@ -194,12 +157,7 @@ def run():
             link = item.find_element(By.CSS_SELECTOR, "a.a-link-normal").get_attribute("href")
             image = item.find_element(By.CSS_SELECTOR, "img.s-image").get_attribute("src")
 
-            price = extract_price_from_selectors(item, [
-                ".a-price .a-offscreen",
-                "span.a-color-base",
-                "span.a-price-whole"
-            ])
-
+            price = get_used_price_from_item(item)
             if not price:
                 price = get_final_price(driver, link)
 
