@@ -6,8 +6,10 @@ on:
 permissions:
   contents: write
   actions: write
+
 jobs:
-  run-scraper:
+  run-scraper-a:
+    name: Scraper A
     runs-on: ubuntu-latest
     timeout-minutes: 4
 
@@ -32,7 +34,8 @@ jobs:
         run: echo "${{ secrets.COOKIE_B64 }}" | base64 -d > cookie_cep.json
 
       - name: Scraper A'yı çalıştır
-        run: python amazon_cep.py
+        run: |
+          python amazon_cep.py || echo "⚠️ Scraper A hata verdi ama zincir devam ediyor"
 
       - name: Değişiklikleri commit et ve pushla
         run: |
@@ -41,7 +44,7 @@ jobs:
           git add send_products.txt
           git commit -m "Scraper A → Fiyat güncellemesi" || echo "⏩ Değişiklik yok"
           git pull origin master --rebase || echo "⏩ Pull başarısız, devam ediliyor"
-          git push
+          git push || echo "⏩ Push başarısız ama zincir devam ediyor"
 
       - name: 30 saniye bekle
         run: sleep 30
@@ -51,4 +54,4 @@ jobs:
           curl -X POST \
             -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             https://api.github.com/repos/anticomm/tv/actions/workflows/scraperb.yml/dispatches \
-            -d '{"ref":"${{ github.ref_name }}"}'
+            -d '{"ref":"master"}' || echo "⚠️ Scraper B tetiklenemedi ama zincir devam ediyor"
