@@ -73,3 +73,57 @@ def send_message(product):
             print(f"❌ Gönderim hatası: {product.get('title', 'Ürün')} → {response.status_code} {response.text}")
     except Exception as e:
         print(f"❌ Telegram gönderim hatası: {e}")
+
+# 👇 Epey ekran görüntüsü gönderimi
+def send_epey_image(product, image_path):
+    token = os.getenv("BOT_TOKEN")
+    chat_id = os.getenv("CHAT_ID")
+    base_url = f"https://api.telegram.org/bot{token}"
+
+    if not token or not chat_id:
+        print("❌ BOT_TOKEN veya CHAT_ID tanımlı değil.")
+        return
+
+    title = product.get("title", "📷 Epey Görseli")
+    caption = f"*{title}*\n📊 Epey karşılaştırması"
+    try:
+        with open(image_path, "rb") as img:
+            files = {"photo": img}
+            payload = {
+                "chat_id": chat_id,
+                "caption": caption,
+                "parse_mode": "Markdown"
+            }
+            response = requests.post(f"{base_url}/sendPhoto", data=payload, files=files)
+        if response.status_code == 200:
+            print(f"✅ Epey görseli gönderildi: {title}")
+        else:
+            print(f"❌ Epey görsel gönderim hatası: {response.status_code} {response.text}")
+    except Exception as e:
+        print(f"❌ Epey görsel gönderim hatası: {e}")
+
+# 👇 Epey link fallback gönderimi
+def send_epey_link(product, url):
+    token = os.getenv("BOT_TOKEN")
+    chat_id = os.getenv("CHAT_ID")
+    base_url = f"https://api.telegram.org/bot{token}"
+
+    if not token or not chat_id:
+        print("❌ BOT_TOKEN veya CHAT_ID tanımlı değil.")
+        return
+
+    title = product.get("title", "🔗 Epey Linki")
+    message = f"*{title}*\n🔗 [Epey karşılaştırması]({url})"
+    payload = {
+        "chat_id": chat_id,
+        "text": message,
+        "parse_mode": "Markdown"
+    }
+    try:
+        response = requests.post(f"{base_url}/sendMessage", data=payload)
+        if response.status_code == 200:
+            print(f"✅ Epey linki gönderildi: {title}")
+        else:
+            print(f"❌ Epey link gönderim hatası: {response.status_code} {response.text}")
+    except Exception as e:
+        print(f"❌ Epey link gönderim hatası: {e}")
