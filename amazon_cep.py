@@ -1,3 +1,5 @@
+import time, os, requests
+start = time.time()
 import os
 import json
 import time
@@ -32,6 +34,7 @@ def decode_cookie_from_env():
         return False
 
 def load_cookies(driver):
+    check_timeout()
     if not os.path.exists(COOKIE_FILE):
         print("❌ Cookie dosyası eksik.")
         return
@@ -47,8 +50,24 @@ def load_cookies(driver):
             })
         except Exception as e:
             print(f"⚠️ Cookie eklenemedi: {cookie.get('name')} → {e}")
-
+def check_timeout():
+    if time.time() - start > 180:
+        print("⏱️ Süre doldu, zincir devam ediyor.")
+        try:
+            requests.post(
+                "https://api.github.com/repos/anticomm/depo_dzst-/actions/workflows/scraperb.yml/dispatches",
+                headers={
+                    "Authorization": f"Bearer {os.environ['GITHUB_TOKEN']}",
+                    "Accept": "application/vnd.github.v3+json"
+                },
+                json={"ref": "master"}
+            )
+            print("📡 Scraper B tetiklendi.")
+        except Exception as e:
+            print(f"❌ Scraper B tetiklenemedi: {e}")
+        exit()
 def get_driver():
+    check_timeout()
     options = Options()
     options.add_argument("--headless=new")
     options.add_argument("--disable-gpu")
@@ -56,7 +75,10 @@ def get_driver():
     options.add_argument("--window-size=1920,1080")
     options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/115 Safari/537.36")
     return webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
-
+def scroll_page(driver, pause=1.5, steps=5):
+    for _ in range(steps):
+        driver.execute_script("window.scrollBy(0, 1000);")
+        time.sleep(pause)
 def get_used_price_from_item(item):
     try:
         container = item.find_element(
@@ -100,6 +122,7 @@ def get_final_price(driver, link):
         return None
 
 def load_sent_data():
+    check_timeout()
     data = {}
     if os.path.exists(SENT_FILE):
         with open(SENT_FILE, "r", encoding="utf-8") as f:
@@ -116,6 +139,7 @@ def save_sent_data(updated_data):
             f.write(f"{asin} | {price}\n")
 
 def run():
+    check_timeout()
     if not decode_cookie_from_env():
         return
 
@@ -124,16 +148,15 @@ def run():
     time.sleep(2)
     load_cookies(driver)
     driver.get(URL)
-
     try:
-        WebDriverWait(driver, 30).until(
+        WebDriverWait(driver, 35).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, "div[data-component-type='s-search-result']"))
         )
     except:
         print("⚠️ Sayfa yüklenemedi.")
         driver.quit()
         return
-
+    scroll_page(driver)
     driver.execute_script("""
       document.querySelectorAll("h5.a-carousel-heading").forEach(h => {
         let box = h.closest("div");
@@ -145,6 +168,7 @@ def run():
     print(f"🔍 {len(items)} ürün bulundu.")
     products = []
     for item in items:
+        check_timeout()
         try:
             if item.find_elements(By.XPATH, ".//span[contains(text(), 'Sponsorlu')]"):
                 continue
