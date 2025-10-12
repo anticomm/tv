@@ -17,7 +17,9 @@ jobs:
       BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
       CHAT_ID: ${{ secrets.CHAT_ID }}
       COOKIE_B64: ${{ secrets.COOKIE_B64 }}
-
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+      CSE_ID: ${{ secrets.CSE_ID }}
+      COOKIE2_B64: ${{ secrets.COOKIE2_B64 }}
     steps:
       - name: Repo'yu klonla
         uses: actions/checkout@v3
