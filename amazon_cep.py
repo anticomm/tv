@@ -65,7 +65,7 @@ def check_timeout():
             print("📡 Scraper B tetiklendi.")
         except Exception as e:
             print(f"❌ Scraper B tetiklenemedi: {e}")
-        exit()
+        raise TimeoutError("Zincir süresi doldu")
 def get_driver():
     check_timeout()
     options = Options()
@@ -103,6 +103,7 @@ def get_used_price_from_detail(driver):
         return None
 
 def get_final_price(driver, link):
+    check_timeout()
     try:
         driver.execute_script("window.open('');")
         driver.switch_to.window(driver.window_handles[1])
@@ -144,9 +145,12 @@ def run():
         return
 
     driver = get_driver()
+    check_timeout()
+
     driver.get(URL)
     time.sleep(2)
     load_cookies(driver)
+    check_timeout()
     driver.get(URL)
     try:
         WebDriverWait(driver, 35).until(
@@ -243,4 +247,7 @@ def run():
         print("⚠️ Yeni veya indirimli ürün bulunamadı.")
 
 if __name__ == "__main__":
-    run()
+    try:
+        run()
+    except TimeoutError as e:
+        print(f"⏹️ Zincir durduruldu: {e}")
