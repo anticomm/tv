@@ -50,6 +50,8 @@ def load_epey_cookies(driver):
 
 def get_driver():
     try:
+        import os
+        os.environ["DISPLAY"] = ":99"
         path = ChromeDriverManager().install()
         print(f"🧪 Chrome driver path: {path}")
         options = Options()
@@ -101,6 +103,10 @@ def capture_epey_screenshot(url: str, save_path="epey.png"):
         decode_cookie2_from_env()
         load_epey_cookies(driver)
         driver.get(url)
+        if "Verifying you are human" in driver.page_source or "needs to review the security" in driver.page_source:
+            print("⚠️ Cloudflare doğrulama sayfası algılandı, zincir durduruluyor.")
+            driver.quit()
+            return None
         WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, "body")))
         time.sleep(2)
         driver.save_screenshot(save_path)
