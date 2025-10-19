@@ -36,8 +36,7 @@ jobs:
         run: echo "${{ secrets.COOKIE_B64 }}" | base64 -d > cookie_cep.json
 
       - name: Scraper C'yi çalıştır
-        run: |
-          python amazon_cep.py || echo "⚠️ Scraper C hata verdi ama zincir devam ediyor"
+        run: timeout 110s python scraper_b.py || echo "⚠️ Scraper B timeout ile kesildi ama zincir devam ediyor"
 
       - name: Değişiklikleri commit et ve pushla
         run: |
