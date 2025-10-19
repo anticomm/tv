@@ -148,6 +148,7 @@ def run():
     check_timeout()
 
     driver.get(URL)
+    check_timeout()
     time.sleep(2)
     load_cookies(driver)
     check_timeout()
@@ -248,6 +249,7 @@ def run():
 
 if __name__ == "__main__":
     try:
+        check_timeout()
         run()
     except TimeoutError as e:
         print(f"⏹️ Zincir durduruldu: {e}")
